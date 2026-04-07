@@ -1,0 +1,33 @@
+name: "trading-env"
+version: "1.0.0"
+description: "Professional options trading environment simulating NIFTY 50 with realistic slippage and brokerage."
+
+# Define the structure clearly so the validator knows exactly what to expect
+observation_space:
+  type: "pydantic"
+  schema: "Observation"
+  fields:
+    - price: "float"
+    - rsi: "float"
+    - trend: "string (bullish/bearish/sideways)"
+    - time_to_expiry: "int (steps remaining)"
+    - position: "string (none/call/put)"
+    - balance: "float"
+    - equity: "float"
+
+action_space:
+  type: "discrete"
+  options: ["BUY_CALL", "BUY_PUT", "HOLD", "EXIT"]
+
+tasks:
+  - id: "easy"
+    description: "Trending market with low volatility (0.5). Goal: Basic profit capture."
+  - id: "medium"
+    description: "Sideways market with medium volatility (1.2). Goal: Avoid over-trading."
+  - id: "hard"
+    description: "Highly volatile market (3.0). Goal: Survive black swan events using stop-loss."
+
+# Metadata for the grader
+evaluation:
+  primary_metric: "equity"
+  secondary_metrics: ["max_drawdown", "trade_count"]
