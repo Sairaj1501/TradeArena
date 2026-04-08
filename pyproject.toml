@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tradearena-openenv"
+version = "0.1.0"
+description = "OpenEnv-compatible NIFTY options trading environment"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pandas",
+  "numpy",
+  "pydantic",
+  "scipy",
+  "openai",
+  "python-dotenv",
+  "uvicorn",
+  "fastapi",
+  "python-multipart",
+]
+
+[tool.setuptools]
+include-package-data = true
