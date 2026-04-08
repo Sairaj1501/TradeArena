@@ -78,8 +78,8 @@ def read_root():
                 loader.style.display = "inline-block";
 
                 try {
-                    const response = await fetch('/run-interactive-baseline', {
-                        method: 'POST',
+                    const baseUrl = window.location.href.split('?')[0].replace(/\/$/, '');
+                    const response = await fetch(baseUrl + '/run-interactive-baseline', { 
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ api_key: apiKey })
                     });
