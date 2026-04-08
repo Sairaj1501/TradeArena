@@ -36,6 +36,9 @@ def get_llm_action(obs):
     """Generate action using LLM with strict validation."""
 
     client = get_openai_client()
+    
+    # Check if obs is a dictionary, if not it might be a Pydantic object
+    obs_dict = obs if isinstance(obs, dict) else obs.dict()
 
     prompt = f"""
     You are an expert options trader.
@@ -44,11 +47,11 @@ def get_llm_action(obs):
     BUY_CALL, BUY_PUT, HOLD, EXIT
 
     Observation:
-    - Price: {obs.price}
-    - RSI: {obs.rsi}
-    - Trend: {obs.trend}
-    - Position: {obs.position}
-    - Equity: {obs.equity}
+    - Price: {obs_dict['price']}
+    - RSI: {obs_dict['rsi']}
+    - Trend: {obs_dict['trend']}
+    - Position: {obs_dict['position']}
+    - Equity: {obs_dict['equity']}
 
     Respond with ONLY the action name.
     """
