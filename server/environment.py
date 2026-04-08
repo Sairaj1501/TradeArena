@@ -38,7 +38,8 @@ class TradingEnvironment:
         self.current_price = None
         self.peak_equity = self.equity
         self.max_drawdown = 0
-       
+        
+        return self._get_observation()
 
     # ===============================
     # 📊 OBSERVATION
