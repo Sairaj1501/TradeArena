@@ -1,3 +1,11 @@
+---
+title: TradeArena Agent
+emoji: 📈
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
 # 📈 OpenEnv NIFTY 50 Options Trading Simulator
 
 [![OpenEnv Compliant](https://img.shields.io/badge/OpenEnv-Compliant-green)](https://github.com/openenv)
