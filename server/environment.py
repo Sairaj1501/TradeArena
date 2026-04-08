@@ -23,7 +23,6 @@ class TradingEnvironment:
     # 🔁 RESET
     # ===============================
     def reset(self) -> Observation:
-        print("START: new_episode")
         self.start_index = random.randint(0, len(self.data) - self.episode_length - 1)
         self.current_index = self.start_index
 
@@ -174,7 +173,6 @@ class TradingEnvironment:
         )
 
         observation = Observation(**self._get_observation()) if not done else None
-        print(f"STEP: action={action} equity={self.equity} trades={self.trade_count}")
         return observation, reward
 
     # ===============================

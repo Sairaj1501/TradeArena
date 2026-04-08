@@ -36,8 +36,13 @@ def get_llm_action(obs):
 
     client = get_openai_client()
     
-    # Check if obs is a dictionary, if not it might be a Pydantic object
-    obs_dict = obs if isinstance(obs, dict) else obs.dict()
+    # Support both dict observations and Pydantic models (v1/v2)
+    if isinstance(obs, dict):
+        obs_dict = obs
+    elif hasattr(obs, "model_dump"):
+        obs_dict = obs.model_dump()
+    else:
+        obs_dict = obs.dict()
 
     prompt = f"""
     You are an expert options trader.

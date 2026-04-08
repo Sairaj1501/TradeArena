@@ -10,11 +10,14 @@ from pydantic import BaseModel
 import os
 import sys
 import io
+import threading
+import contextlib
 
 from inference import get_llm_action
 from grader.grader import grade_agent
 
 app = FastAPI()
+RUN_LOCK = threading.Lock()
 
 # ===============================
 # 🔁 INIT ENV
@@ -57,7 +60,7 @@ def read_root():
             <label for="apikey"><b>HF_TOKEN / OpenAI API Key</b></label>
             <input type="password" id="apikey" placeholder="sk-proj-..." required>
             
-            <button onclick="runBaseline()">Run Evaluation <div class="loader" id="loader"></div></button>
+            <button id="runBtn" onclick="runBaseline()">Run Evaluation <div class="loader" id="loader"></div></button>
             
             <h3 style="margin-top: 30px;">Terminal Output:</h3>
             <pre id="output">Ready to execute.</pre>
@@ -68,6 +71,7 @@ def read_root():
                 const apiKey = document.getElementById("apikey").value;
                 const output = document.getElementById("output");
                 const loader = document.getElementById("loader");
+                const runBtn = document.getElementById("runBtn");
                 
                 if (!apiKey) {
                     alert("Please provide an OpenAI API Key.");
@@ -76,6 +80,8 @@ def read_root():
 
                 output.innerText = "Initializing Trading Environment...\\nExecuting 100 RL steps against the market...\\n(This might take up to 60 seconds)";
                 loader.style.display = "inline-block";
+                runBtn.disabled = true;
+                runBtn.style.opacity = "0.7";
 
                 try {
                     const response = await fetch('/run-interactive-baseline', {
@@ -95,6 +101,8 @@ def read_root():
                     output.innerText = "Fetch Error: " + err;
                 } finally {
                     loader.style.display = "none";
+                    runBtn.disabled = false;
+                    runBtn.style.opacity = "1";
                 }
             }
         </script>
@@ -114,57 +122,56 @@ def run_interactive_baseline(req: LLMRequest):
     if not env:
         return {"error": "Environment not initialized"}
 
+    if not RUN_LOCK.acquire(blocking=False):
+        return {"error": "Another run is already in progress. Please wait and retry."}
+
     if req.api_key == "test":
+        RUN_LOCK.release()
         return {"logs": "Mock run successful"}
 
     # Temporarily set the key for this execution using HF_TOKEN
     os.environ["HF_TOKEN"] = req.api_key
 
     # We redirect standard output (print statements) to a string buffer to send back to the UI
-    old_stdout = sys.stdout
     new_stdout = io.StringIO()
-    sys.stdout = new_stdout
 
     try:
-        print("START: baseline_run")
-        task = "easy"
-        task_config = get_task_config(task)
-        
-        # We need to run baseline logic here locally
-        obs = env.reset()
-        done = False
-        total_reward = 0
-        step_count = 0
-        
-        # Note: Depending on logic, this runs get_action from inference
-        # If the user switched get_action to RSI rule-based, this will run the rule-based logic!
-        # If they need the LLM, they can change inference back to get_llm_action.
-        while not done:
-            action = get_llm_action(obs)
-            print(f"STEP: step={step_count} action={action}")
-            
-            obs, reward_obj = env.step(action)
-            done = reward_obj.done
-            reward = reward_obj.value
-            
-            total_reward += reward
-            step_count += 1
-            
-        final_state = env.state()
-        score = grade_agent(task, final_state)
-        
-        print(f"END: baseline_run score={score}")
-        print("-" * 40)
-        print(f"Final Equity : {final_state.get('equity', 0):.2f}")
-        print(f"Trade Count  : {final_state.get('trade_count')}")
-        print(f"Total Reward : {total_reward:.4f}")
-        print(f"Hackathon Score: {score}")
+        with contextlib.redirect_stdout(new_stdout):
+            print("START: baseline_run")
+            task = "easy"
+            task_config = get_task_config(task)
+
+            obs = env.reset()
+            done = False
+            total_reward = 0
+            step_count = 0
+
+            while not done:
+                action = get_llm_action(obs)
+                print(f"STEP: step={step_count} action={action}")
+
+                obs, reward_obj = env.step(action)
+                done = reward_obj.done
+                reward = reward_obj.value
+
+                total_reward += reward
+                step_count += 1
+
+            final_state = env.state()
+            score = grade_agent(task, final_state)
+
+            print(f"END: baseline_run score={score}")
+            print("-" * 40)
+            print(f"Final Equity : {final_state.get('equity', 0):.2f}")
+            print(f"Trade Count  : {final_state.get('trade_count')}")
+            print(f"Total Reward : {total_reward:.4f}")
+            print(f"Hackathon Score: {score}")
 
     except Exception as e:
-        print(f"CRITICAL SIMULATION ERROR: {str(e)}")
+        with contextlib.redirect_stdout(new_stdout):
+            print(f"CRITICAL SIMULATION ERROR: {str(e)}")
     finally:
-        # Restore normal printing
-        sys.stdout = old_stdout
+        RUN_LOCK.release()
 
     return {"logs": new_stdout.getvalue()}
 
