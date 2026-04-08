@@ -22,7 +22,7 @@ np.random.seed(42)
 # ===============================
 def get_openai_client():
     return OpenAI(
-        api_key=os.getenv("OPENAI_API_KEY", "dummy_key_if_missing"), # Use dummy key to prevent crash on startup
+        api_key=os.getenv("HF_TOKEN", "dummy_key_if_missing"), # Submission protocol says use HF_TOKEN
         base_url=os.getenv("API_BASE_URL")  # optional but required by checklist
     )
 

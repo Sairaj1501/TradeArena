@@ -11,7 +11,7 @@ import os
 import sys
 import io
 
-from baseline.run_baseline import get_llm_action
+from inference import get_llm_action
 from grader.grader import grade_agent
 
 app = FastAPI()
@@ -52,9 +52,9 @@ def read_root():
     <body>
         <div class="container">
             <h1>📊 TradeArena Submission Viewer</h1>
-            <p>Welcome Judges! Enter your OpenAI API key below to execute the <code>run_baseline.py</code> simulation live. The output logs will appear directly on this page.</p>
+            <p>Welcome Judges! Enter your API key (HF_TOKEN) below to execute the <code>inference.py</code> simulation live. The output logs will appear directly on this page.</p>
             
-            <label for="apikey"><b>OpenAI API Key</b></label>
+            <label for="apikey"><b>HF_TOKEN / OpenAI API Key</b></label>
             <input type="password" id="apikey" placeholder="sk-proj-..." required>
             
             <button onclick="runBaseline()">Run Evaluation <div class="loader" id="loader"></div></button>
@@ -114,8 +114,8 @@ def run_interactive_baseline(req: LLMRequest):
     if not env:
         return {"error": "Environment not initialized"}
 
-    # Temporarily set the key for this execution
-    os.environ["OPENAI_API_KEY"] = req.api_key
+    # Temporarily set the key for this execution using HF_TOKEN
+    os.environ["HF_TOKEN"] = req.api_key
 
     # We redirect standard output (print statements) to a string buffer to send back to the UI
     old_stdout = sys.stdout
@@ -133,9 +133,9 @@ def run_interactive_baseline(req: LLMRequest):
         total_reward = 0
         step_count = 0
         
-        # Note: Depending on logic, this runs get_action from baseline.run_baseline
+        # Note: Depending on logic, this runs get_action from inference
         # If the user switched get_action to RSI rule-based, this will run the rule-based logic!
-        # If they need the LLM, they can change baseline.run_baseline back to get_llm_action.
+        # If they need the LLM, they can change inference back to get_llm_action.
         while not done:
             action = get_llm_action(obs)
             print(f"STEP: step={step_count} action={action}")
