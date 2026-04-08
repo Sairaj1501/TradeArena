@@ -11,7 +11,7 @@ import os
 import sys
 import io
 
-from baseline.run_baseline import get_action
+from baseline.run_baseline import get_llm_action
 from grader.grader import grade_agent
 
 app = FastAPI()
@@ -137,7 +137,7 @@ def run_interactive_baseline(req: LLMRequest):
         # If the user switched get_action to RSI rule-based, this will run the rule-based logic!
         # If they need the LLM, they can change baseline.run_baseline back to get_llm_action.
         while not done:
-            action = get_action(obs)
+            action = get_llm_action(obs)
             print(f"STEP: step={step_count} action={action}")
             
             obs, reward_obj = env.step(action)
