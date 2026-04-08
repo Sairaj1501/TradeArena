@@ -9,9 +9,10 @@ observation_space:
   fields:
     - price: "float"
     - rsi: "float"
-    - trend: "string (bullish/bearish/sideways)"
-    - time_to_expiry: "int (steps remaining)"
-    - position: "string (none/call/put)"
+    - trend: "string"
+    - time_to_expiry: "int"
+    - position: "string"
+    - entry_price: "optional[float]"
     - balance: "float"
     - equity: "float"
 
