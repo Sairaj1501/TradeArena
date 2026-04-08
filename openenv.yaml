@@ -19,6 +19,17 @@ action_space:
   type: "discrete"
   options: ["BUY_CALL", "BUY_PUT", "HOLD", "EXIT"]
 
+reward:
+  type: float
+  range: [-1, 1]
+
+episode:
+  max_steps: 400
+
+termination_conditions:
+  - bankruptcy
+  - max_steps
+  
 tasks:
   - id: "easy"
     description: "Trending market with low volatility (0.5). Goal: Basic profit capture."

@@ -1,0 +1,15 @@
+# Data Processing
+pandas
+numpy
+
+# Environment & Logic
+pydantic
+scipy
+
+# API & LLM Baseline
+openai
+python-dotenv
+
+# Deployment & Web
+uvicorn
+fastapi
