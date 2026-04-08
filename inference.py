@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import random
 import numpy as np
@@ -9,28 +10,26 @@ from server.environment import TradingEnvironment
 from tasks.tasks import get_task_config
 from grader.grader import grade_agent
 
-
 # ===============================
-# 🔒 Reproducibility (IMPORTANT)
+# Reproducibility (IMPORTANT)
 # ===============================
 random.seed(42)
 np.random.seed(42)
 
-
 # ===============================
-# 🤖 OpenAI Client (ENV CONFIG)
+# OpenAI Client (ENV CONFIG)
 # ===============================
 def get_openai_client():
+    # Checklist: "Must use OpenAI Client for all LLM calls using above variables"
     return OpenAI(
-        api_key=os.getenv("HF_TOKEN", "dummy_key_if_missing"), # Submission protocol says use HF_TOKEN
-        base_url=os.getenv("API_BASE_URL")  # optional but required by checklist
+        api_key=os.getenv("HF_TOKEN", "dummy_key_if_missing"), 
+        base_url=os.getenv("API_BASE_URL", "https://api.openai.com/v1") 
     )
 
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
-
 # ===============================
-# 🧠 LLM Action Generator
+# LLM Action Generator
 # ===============================
 def get_llm_action(obs):
     """Generate action using LLM with strict validation."""
@@ -61,77 +60,67 @@ def get_llm_action(obs):
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=10,
-            temperature=0  # 🔥 makes it more deterministic
+            temperature=0
         )
 
         action = response.choices[0].message.content.strip().upper()
 
     except Exception as e:
-        print(f"STEP: error=LLM_failure fallback=HOLD")
+        print(f"[STEP] error=LLM_failure fallback=HOLD")
         return "HOLD"
 
-    # ✅ Strict validation
     if action not in ["BUY_CALL", "BUY_PUT", "HOLD", "EXIT"]:
-        print(f"STEP: invalid_action={action} fallback=HOLD")
+        print(f"[STEP] invalid_action={action} fallback=HOLD")
         return "HOLD"
 
     return action
 
 
 # ===============================
-# 🚀 MAIN EXECUTION
+# MAIN EXECUTION
 # ===============================
 if __name__ == "__main__":
+    
+    # "3+ tasks with graders"
+    tasks = ["easy", "medium", "hard"]
 
-    print("START: baseline_run")
+    try:
+        data = load_data("data/NIFTY 50_minute.csv")
+    except Exception as e:
+        print("[END] score=0.0")
+        sys.exit(0)
 
-    # Load data
-    data = load_data("data/NIFTY 50_minute.csv")
-
-    # Select task
-    task = "easy"  # change to medium/hard if needed
-    task_config = get_task_config(task)
-
-    # Initialize environment
-    env = TradingEnvironment(data, task_config)
-
-    obs = env.reset()
-    done = False
-    total_reward = 0
-    step_count = 0
-
-    print(f"STEP: init task={task}")
-
-    # ===============================
-    # 🔁 EPISODE LOOP
-    # ===============================
-    while not done:
-
-        action = get_llm_action(obs)
-
-        print(f"STEP: step={step_count} action={action}")
-
-        # The TradingEnvironment returns a tuple of (Observation, RewardModel)
-        obs, reward_obj = env.step(action)
+    for task in tasks:
+        # Checklist format constraints: [START]
+        print(f"[START] {task}")
         
-        done = reward_obj.done
-        reward = reward_obj.value
+        task_config = get_task_config(task)
+        env = TradingEnvironment(data, task_config)
 
-        total_reward += reward
-        step_count += 1
+        obs = env.reset()
+        done = False
+        step_count = 0
 
-    # ===============================
-    # 📊 FINAL EVALUATION
-    # ===============================
-    final_state = env.state()
-    score = grade_agent(task, final_state)
+        while not done:
+            action = get_llm_action(obs)
 
-    print(f"END: baseline_run score={score}")
+            # Checklist format constraints: [STEP]
+            print(f"[STEP] step={step_count} action={action}")
 
-    # Optional readable summary (not required but helpful)
-    print("-" * 40)
-    print(f"Final Equity : {final_state['equity']:.2f}")
-    print(f"Trade Count  : {final_state['trade_count']}")
-    print(f"Total Reward : {total_reward:.4f}")
-    print(f"Hackathon Score : {score}")
-    print("-" * 40)
+            obs, reward_obj = env.step(action)
+            done = reward_obj.done
+            step_count += 1
+            
+            # Infra Restriction: Prevent endless loop hitting the 20 minute limit
+            if step_count > 500:
+                print("[STEP] forced_break=true")
+                break
+
+        final_state = env.state()
+        try:
+            score = grade_agent(task, final_state)
+        except Exception:
+            score = 0.0
+
+        # Checklist format constraints: [END]
+        print(f"[END] {task} score={score}")
