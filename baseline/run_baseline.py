@@ -20,10 +20,11 @@ np.random.seed(42)
 # ===============================
 # 🤖 OpenAI Client (ENV CONFIG)
 # ===============================
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    base_url=os.getenv("API_BASE_URL")  # optional but required by checklist
-)
+def get_openai_client():
+    return OpenAI(
+        api_key=os.getenv("OPENAI_API_KEY", "dummy_key_if_missing"), # Use dummy key to prevent crash on startup
+        base_url=os.getenv("API_BASE_URL")  # optional but required by checklist
+    )
 
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
@@ -33,6 +34,8 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 # ===============================
 def get_llm_action(obs):
     """Generate action using LLM with strict validation."""
+
+    client = get_openai_client()
 
     prompt = f"""
     You are an expert options trader.
