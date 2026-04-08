@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from server.models import Action
-# from server.environment import TradingEnvironment
 from server.environment import TradingEnvironment
 from typing import Optional
 from server.models import Observation, Reward
 from core.data_processing import load_data
 from tasks.tasks import get_task_config
+from baseline.run_baseline import get_llm_action
 
 app = FastAPI()
 
@@ -41,6 +41,15 @@ def reset():
     obs = env.reset()
     return obs
 
+
+# ===============================
+# 🤖 GET LLM ACTION
+# ===============================
+@app.post("/act")
+def act(obs: Observation):
+    # This endpoint lets the judges ask your baseline agent what to do!
+    action = get_llm_action(obs)
+    return {"action": action}
 
 # ===============================
 # ⚡ STEP
