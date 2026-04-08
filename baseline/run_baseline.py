@@ -111,7 +111,11 @@ if __name__ == "__main__":
 
         print(f"STEP: step={step_count} action={action}")
 
-        obs, reward, done, info = env.step(action)
+        # The TradingEnvironment returns a tuple of (Observation, RewardModel)
+        obs, reward_obj = env.step(action)
+        
+        done = reward_obj.done
+        reward = reward_obj.value
 
         total_reward += reward
         step_count += 1
