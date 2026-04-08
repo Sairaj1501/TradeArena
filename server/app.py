@@ -74,12 +74,12 @@ def read_root():
                     return;
                 }
 
-                output.innerText = "Initializing Trading Environment...\nExecuting 100 RL steps against the market...\n(This might take up to 60 seconds)";
+                output.innerText = "Initializing Trading Environment...\\nExecuting 100 RL steps against the market...\\n(This might take up to 60 seconds)";
                 loader.style.display = "inline-block";
 
                 try {
-                    
-                    const response = await fetch('./run-interactive-baseline', { 
+                    const response = await fetch('/run-interactive-baseline', {
+                        method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ api_key: apiKey })
                     });
