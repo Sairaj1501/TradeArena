@@ -63,7 +63,8 @@ class TradingEnvironment:
     # ===============================
     def step(self, action: Action) -> tuple[Optional[Observation], Reward]:
 
-        action = action.action  # extract string
+        # Check if action is a Pydantic model (from web API) or just a string (from local run_baseline loop)
+        action_str = action.action if hasattr(action, 'action') else action
 
         prev_equity = self.equity
         done = False
@@ -81,11 +82,11 @@ class TradingEnvironment:
         # ===============================
         # ACTION VALIDATION
         # ===============================
-        if action in ["BUY_CALL", "BUY_PUT"] and self.position != "none":
-            action = "HOLD"
+        if action_str in ["BUY_CALL", "BUY_PUT"] and self.position != "none":
+            action_str = "HOLD"
 
-        if action == "EXIT" and self.position == "none":
-            action = "HOLD"
+        if action_str == "EXIT" and self.position == "none":
+            action_str = "HOLD"
 
         # ===============================
         # STOP LOSS
@@ -97,26 +98,26 @@ class TradingEnvironment:
                 pnl_pct = (self.entry_price - self.current_price) / self.entry_price
 
             if pnl_pct <= -self.stop_loss_limit:
-                action = "EXIT"
+                action_str = "EXIT"
 
         # ===============================
         # EXECUTION
         # ===============================
-        if action == "BUY_CALL" and self.position == "none":
+        if action_str == "BUY_CALL" and self.position == "none":
             self.position = "call"
             self.position_size = 0.1 * self.balance
             self.entry_price = self.current_price
             self.trade_count += 1
             self.balance -= (self.position_size + self.brokerage)
 
-        elif action == "BUY_PUT" and self.position == "none":
+        elif action_str == "BUY_PUT" and self.position == "none":
             self.position = "put"
             self.position_size = 0.1 * self.balance
             self.entry_price = self.current_price
             self.trade_count += 1
             self.balance -= (self.position_size + self.brokerage)
 
-        elif action == "EXIT" and self.position != "none":
+        elif action_str == "EXIT" and self.position != "none":
             if self.position == "call":
                 profit = (self.current_price - self.entry_price) / self.entry_price
             else:
