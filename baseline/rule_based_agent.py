@@ -1,7 +1,7 @@
 import random
 import numpy as np
 from core.data_processing import load_data
-from env.trading_env import TradingEnv
+from server.environment import TradingEnvironment
 from tasks.tasks import get_task_config
 from grader.grader import grade_agent
 

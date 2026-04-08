@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from core.data_processing import load_data
-from env.trading_env import TradingEnv
+from server.environment import TradingEnvironment
 from tasks.tasks import get_task_config
 
 class QLearningAgent:
