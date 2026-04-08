@@ -19,6 +19,13 @@ env = TradingEnvironment(data, task_config)
 
 
 # ===============================
+# 🏠 ROOT
+# ===============================
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the TradeArena Agent API", "docs": "/docs"}
+
+# ===============================
 # ❤️ HEALTH CHECK
 # ===============================
 @app.get("/health")
