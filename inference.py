@@ -1,8 +1,8 @@
 import os
 import sys
-import json
 import random
 import numpy as np
+from pathlib import Path
 from openai import OpenAI
 
 from core.data_processing import load_data
@@ -32,7 +32,11 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 # LLM Action Generator
 # ===============================
 def get_llm_action(obs):
-    """Generate action using LLM with strict validation."""
+    """Generate action using LLM with strict validation.
+
+    Returns:
+        tuple[str, str]: (action, fallback_reason)
+    """
 
     client = get_openai_client()
     
@@ -71,33 +75,36 @@ def get_llm_action(obs):
         action = response.choices[0].message.content.strip().upper()
 
     except Exception as e:
-        print(f"[STEP] error=LLM_failure fallback=HOLD")
-        return "HOLD"
+        return "HOLD", "llm_failure"
 
     if action not in ["BUY_CALL", "BUY_PUT", "HOLD", "EXIT"]:
-        print(f"[STEP] invalid_action={action} fallback=HOLD")
-        return "HOLD"
+        return "HOLD", f"invalid_action:{action}"
 
-    return action
+    return action, "none"
 
 
 # ===============================
 # MAIN EXECUTION
 # ===============================
 if __name__ == "__main__":
-    
-    # "3+ tasks with graders"
     tasks = ["easy", "medium", "hard"]
+    data_path = Path(__file__).resolve().parent / "data" / "NIFTY 50_minute.csv"
 
     try:
-        data = load_data("data/NIFTY 50_minute.csv")
+        data = load_data(str(data_path))
     except Exception as e:
-        print("[END] score=0.0")
+        # Emit structured blocks even on fatal data load failures.
+        for task in tasks:
+            print(f"[START] task={task}", flush=True)
+            print(
+                f"[STEP] task={task} step=0 action=HOLD reward=0.000000 done=true fallback=data_load_failed",
+                flush=True,
+            )
+            print(f"[END] task={task} score=0.000000 steps=0", flush=True)
         sys.exit(0)
 
     for task in tasks:
-        # Checklist format constraints: [START]
-        print(f"[START] {task}")
+        print(f"[START] task={task}", flush=True)
         
         task_config = get_task_config(task)
         env = TradingEnvironment(data, task_config)
@@ -105,20 +112,28 @@ if __name__ == "__main__":
         obs = env.reset()
         done = False
         step_count = 0
+        total_reward = 0.0
 
         while not done:
-            action = get_llm_action(obs)
-
-            # Checklist format constraints: [STEP]
-            print(f"[STEP] step={step_count} action={action}")
+            action, fallback_reason = get_llm_action(obs)
 
             obs, reward_obj = env.step(action)
+            reward = float(reward_obj.value)
             done = reward_obj.done
+            total_reward += reward
+
+            print(
+                f"[STEP] task={task} step={step_count} action={action} reward={reward:.6f} done={str(done).lower()} fallback={fallback_reason}",
+                flush=True,
+            )
+
             step_count += 1
             
-            # Infra Restriction: Prevent endless loop hitting the 20 minute limit
             if step_count > 500:
-                print("[STEP] forced_break=true")
+                print(
+                    f"[STEP] task={task} step={step_count} action=HOLD reward=0.000000 done=true fallback=forced_break",
+                    flush=True,
+                )
                 break
 
         final_state = env.state()
@@ -127,5 +142,4 @@ if __name__ == "__main__":
         except Exception:
             score = 0.0
 
-        # Checklist format constraints: [END]
-        print(f"[END] {task} score={score}")
+        print(f"[END] task={task} score={float(score):.6f} steps={step_count}", flush=True)
