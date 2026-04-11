@@ -54,7 +54,7 @@ def read_root():
     </head>
     <body>
         <div class="container">
-            <h1>📊 TradeArena Submission Viewer</h1>
+            <h1> TradeArena Submission Viewerss</h1>
             <p>Welcome Judges! Enter your API key (HF_TOKEN) below to execute the <code>inference.py</code> simulation live. The output logs will appear directly on this page.</p>
             
             <label for="apikey"><b>HF_TOKEN / OpenAI API Key</b></label>
