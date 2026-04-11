@@ -4,6 +4,7 @@ import random
 import numpy as np
 from pathlib import Path
 from openai import OpenAI
+
 from core.data_processing import load_data
 from server.environment import TradingEnvironment
 from tasks.tasks import get_task_config
@@ -142,3 +143,4 @@ if __name__ == "__main__":
             score = 0.0
 
         print(f"[END] task={task} score={float(score):.6f} steps={step_count}", flush=True)
+
