@@ -3,7 +3,15 @@ import sys
 import random
 import numpy as np
 from pathlib import Path
-from openai import OpenAI
+from openai import (
+    OpenAI,
+    APIConnectionError,
+    APITimeoutError,
+    AuthenticationError,
+    BadRequestError,
+    NotFoundError,
+    RateLimitError,
+)
 
 from core.data_processing import load_data
 from server.environment import TradingEnvironment
@@ -19,14 +27,27 @@ np.random.seed(42)
 # ===============================
 # OpenAI Client (ENV CONFIG)
 # ===============================
+def _env_or_default(name: str, default: str) -> str:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    value = value.strip()
+    return value if value else default
+
+
 def get_openai_client():
     # Checklist: "Must use OpenAI Client for all LLM calls using above variables"
+    api_key = _env_or_default("HF_TOKEN", "")
+    base_url = _env_or_default("API_BASE_URL", "https://api.openai.com/v1")
+
     return OpenAI(
-        api_key=os.getenv("HF_TOKEN", "dummy_key_if_missing"), 
-        base_url=os.getenv("API_BASE_URL", "https://api.openai.com/v1") 
+        api_key=api_key if api_key else "dummy_key_if_missing",
+        base_url=base_url,
+        timeout=10.0,
+        max_retries=1,
     )
 
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+MODEL_NAME = _env_or_default("MODEL_NAME", "gpt-4o-mini")
 
 # ===============================
 # LLM Action Generator
@@ -37,6 +58,9 @@ def get_llm_action(obs):
     Returns:
         tuple[str, str]: (action, fallback_reason)
     """
+
+    if not _env_or_default("HF_TOKEN", ""):
+        return "HOLD", "missing_hf_token"
 
     client = get_openai_client()
     
@@ -74,7 +98,19 @@ def get_llm_action(obs):
 
         action = response.choices[0].message.content.strip().upper()
 
-    except Exception as e:
+    except AuthenticationError:
+        return "HOLD", "auth_error"
+    except RateLimitError:
+        return "HOLD", "rate_limited"
+    except APITimeoutError:
+        return "HOLD", "timeout"
+    except APIConnectionError:
+        return "HOLD", "connection_error"
+    except NotFoundError:
+        return "HOLD", "model_not_found"
+    except BadRequestError:
+        return "HOLD", "bad_request"
+    except Exception:
         return "HOLD", "llm_failure"
 
     if action not in ["BUY_CALL", "BUY_PUT", "HOLD", "EXIT"]:

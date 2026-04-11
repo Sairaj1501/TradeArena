@@ -35,6 +35,9 @@ except Exception as e:
 # ===============================
 @app.get("/", response_class=HTMLResponse)
 def read_root():
+    default_api_base = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+    default_model = os.getenv("MODEL_NAME", "gpt-4o-mini")
+
     html_content = """
     <!DOCTYPE html>
     <html>
@@ -59,6 +62,12 @@ def read_root():
             
             <label for="apikey"><b>HF_TOKEN / OpenAI API Key</b></label>
             <input type="password" id="apikey" placeholder="sk-proj-..." required>
+
+            <label for="apiBase"><b>API_BASE_URL</b></label>
+            <input type="text" id="apiBase" placeholder="https://api.openai.com/v1" value="%%DEFAULT_API_BASE%%">
+
+            <label for="modelName"><b>MODEL_NAME</b></label>
+            <input type="text" id="modelName" placeholder="gpt-4o-mini" value="%%DEFAULT_MODEL%%">
             
             <button id="runBtn" onclick="runBaseline()">Run Evaluation <div class="loader" id="loader"></div></button>
             
@@ -72,6 +81,8 @@ def read_root():
                 const output = document.getElementById("output");
                 const loader = document.getElementById("loader");
                 const runBtn = document.getElementById("runBtn");
+                const apiBase = document.getElementById("apiBase").value;
+                const modelName = document.getElementById("modelName").value;
                 
                 if (!apiKey) {
                     alert("Please provide an OpenAI API Key.");
@@ -87,7 +98,7 @@ def read_root():
                     const response = await fetch('/run-interactive-baseline', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ api_key: apiKey })
+                        body: JSON.stringify({ api_key: apiKey, api_base_url: apiBase, model_name: modelName })
                     });
                     
                     const data = await response.json();
@@ -109,10 +120,16 @@ def read_root():
     </body>
     </html>
     """
-    return html_content
+    return (
+        html_content
+        .replace("%%DEFAULT_API_BASE%%", default_api_base)
+        .replace("%%DEFAULT_MODEL%%", default_model)
+    )
 
 class LLMRequest(BaseModel):
     api_key: str
+    api_base_url: Optional[str] = None
+    model_name: Optional[str] = None
 
 # ===============================
 # 🤖 INTERACTIVE LLM BASELINE RUNNER
@@ -131,6 +148,10 @@ def run_interactive_baseline(req: LLMRequest):
 
     # Temporarily set the key for this execution using HF_TOKEN
     os.environ["HF_TOKEN"] = req.api_key
+    if req.api_base_url and req.api_base_url.strip():
+        os.environ["API_BASE_URL"] = req.api_base_url.strip()
+    if req.model_name and req.model_name.strip():
+        os.environ["MODEL_NAME"] = req.model_name.strip()
 
     # We redirect standard output (print statements) to a string buffer to send back to the UI
     new_stdout = io.StringIO()
@@ -147,8 +168,8 @@ def run_interactive_baseline(req: LLMRequest):
             step_count = 0
 
             while not done:
-                action = get_llm_action(obs)
-                print(f"STEP: step={step_count} action={action}")
+                action, fallback_reason = get_llm_action(obs)
+                print(f"STEP: step={step_count} action={action} fallback={fallback_reason}")
 
                 obs, reward_obj = env.step(action)
                 done = reward_obj.done
