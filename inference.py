@@ -22,8 +22,8 @@ np.random.seed(42)
 def get_openai_client():
     # Checklist: "Must use OpenAI Client for all LLM calls using above variables"
     return OpenAI(
-        api_key=os.getenv("HF_TOKEN", "dummy_key_if_missing"), 
-        base_url=os.getenv("API_BASE_URL", "https://api.openai.com/v1") 
+        api_key=os.environ.get("API_KEY", os.environ.get("HF_TOKEN", "dummy_key_if_missing")),
+        base_url=os.environ["API_BASE_URL"]
     )
 
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
@@ -143,4 +143,3 @@ if __name__ == "__main__":
             score = 0.0
 
         print(f"[END] task={task} score={float(score):.6f} steps={step_count}", flush=True)
-
