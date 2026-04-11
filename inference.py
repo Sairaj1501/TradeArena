@@ -1,19 +1,9 @@
 import os
 import sys
 import random
-import traceback
 import numpy as np
 from pathlib import Path
-from openai import (
-    OpenAI,
-    APIConnectionError,
-    APITimeoutError,
-    AuthenticationError,
-    BadRequestError,
-    NotFoundError,
-    RateLimitError,
-)
-
+from openai import OpenAI
 from core.data_processing import load_data
 from server.environment import TradingEnvironment
 from tasks.tasks import get_task_config
@@ -27,36 +17,15 @@ np.random.seed(42)
 
 # ===============================
 # OpenAI Client (ENV CONFIG)
-# Read directly from os.environ as required by the hackathon.
-# The hackathon injects API_KEY and API_BASE_URL.
 # ===============================
-API_KEY = os.environ.get("API_KEY", "")
-API_BASE_URL = os.environ.get("API_BASE_URL", "")
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
-
-# Diagnostic output — helps debug proxy issues
-print(f"[DIAG] API_KEY present: {bool(API_KEY)}", flush=True)
-print(f"[DIAG] API_KEY length: {len(API_KEY)}", flush=True)
-print(f"[DIAG] API_BASE_URL: {API_BASE_URL}", flush=True)
-print(f"[DIAG] MODEL_NAME: {MODEL_NAME}", flush=True)
-
-
 def get_openai_client():
-    """Create OpenAI client using the hackathon-provided proxy credentials.
-    
-    Uses os.environ['API_KEY'] and os.environ['API_BASE_URL'] as required.
-    """
+    # Checklist: "Must use OpenAI Client for all LLM calls using above variables"
     return OpenAI(
-        api_key=API_KEY if API_KEY else "no-key-provided",
-        base_url=API_BASE_URL if API_BASE_URL else "https://api.openai.com/v1",
-        timeout=60.0,
-        max_retries=3,
+        api_key=os.getenv("HF_TOKEN", "dummy_key_if_missing"), 
+        base_url=os.getenv("API_BASE_URL", "https://api.openai.com/v1") 
     )
 
-
-# Create a single client instance (reuse across calls)
-CLIENT = get_openai_client()
-
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 
 # ===============================
 # LLM Action Generator
@@ -67,6 +36,9 @@ def get_llm_action(obs):
     Returns:
         tuple[str, str]: (action, fallback_reason)
     """
+
+    client = get_openai_client()
+    
     # Support both dict observations and Pydantic models (v1/v2)
     if isinstance(obs, dict):
         obs_dict = obs
@@ -75,50 +47,33 @@ def get_llm_action(obs):
     else:
         obs_dict = obs.dict()
 
-    prompt = f"""You are an expert options trader.
+    prompt = f"""
+    You are an expert options trader.
 
-Based on the following market data, choose ONE action:
-BUY_CALL, BUY_PUT, HOLD, EXIT
+    Based on the following market data, choose ONE action:
+    BUY_CALL, BUY_PUT, HOLD, EXIT
 
-Observation:
-- Price: {obs_dict['price']}
-- RSI: {obs_dict['rsi']}
-- Trend: {obs_dict['trend']}
-- Position: {obs_dict['position']}
-- Equity: {obs_dict['equity']}
+    Observation:
+    - Price: {obs_dict['price']}
+    - RSI: {obs_dict['rsi']}
+    - Trend: {obs_dict['trend']}
+    - Position: {obs_dict['position']}
+    - Equity: {obs_dict['equity']}
 
-Respond with ONLY the action name."""
+    Respond with ONLY the action name.
+    """
 
     try:
-        response = CLIENT.chat.completions.create(
+        response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=10,
-            temperature=0,
+            temperature=0
         )
+
         action = response.choices[0].message.content.strip().upper()
 
-    except AuthenticationError as e:
-        print(f"[DIAG] AuthenticationError: {e}", flush=True)
-        return "HOLD", "auth_error"
-    except RateLimitError as e:
-        print(f"[DIAG] RateLimitError: {e}", flush=True)
-        return "HOLD", "rate_limited"
-    except APITimeoutError as e:
-        print(f"[DIAG] APITimeoutError: {e}", flush=True)
-        return "HOLD", "timeout"
-    except APIConnectionError as e:
-        print(f"[DIAG] APIConnectionError: {e}", flush=True)
-        return "HOLD", "connection_error"
-    except NotFoundError as e:
-        print(f"[DIAG] NotFoundError: {e}", flush=True)
-        return "HOLD", "model_not_found"
-    except BadRequestError as e:
-        print(f"[DIAG] BadRequestError: {e}", flush=True)
-        return "HOLD", "bad_request"
     except Exception as e:
-        print(f"[DIAG] Unexpected LLM error: {type(e).__name__}: {e}", flush=True)
-        traceback.print_exc()
         return "HOLD", "llm_failure"
 
     if action not in ["BUY_CALL", "BUY_PUT", "HOLD", "EXIT"]:
@@ -136,10 +91,7 @@ if __name__ == "__main__":
 
     try:
         data = load_data(str(data_path))
-        print(f"[DIAG] Data loaded successfully, {len(data)} records", flush=True)
     except Exception as e:
-        print(f"[DIAG] FATAL: Data load failed: {e}", flush=True)
-        traceback.print_exc()
         # Emit structured blocks even on fatal data load failures.
         for task in tasks:
             print(f"[START] task={task}", flush=True)
