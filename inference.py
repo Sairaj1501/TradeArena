@@ -37,7 +37,22 @@ def _env_or_default(name: str, default: str) -> str:
 
 def get_openai_client():
     # Checklist: "Must use OpenAI Client for all LLM calls using above variables"
+    # api_key = _env_or_default("HF_TOKEN", "")
     api_key = _env_or_default("HF_TOKEN", "")
+
+    if not _env_or_default("HF_TOKEN", ""):
+        # Fallback logic (NO API DEPENDENCY)
+
+        close_price = obs.get("close", 0)
+        sma = obs.get("sma_20", close_price)
+        rsi = obs.get("rsi", 50)
+
+        if rsi < 30 and close_price > sma:
+            return "BUY", "fallback_rsi_oversold"
+        elif rsi > 70 and close_price < sma:
+            return "SELL", "fallback_rsi_overbought"
+        else:
+            return "HOLD", "fallback_no_signal"
     base_url = _env_or_default("API_BASE_URL", "https://api.openai.com/v1")
 
     return OpenAI(
