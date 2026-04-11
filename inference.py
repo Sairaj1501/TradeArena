@@ -36,30 +36,15 @@ def _env_or_default(name: str, default: str) -> str:
 
 
 def get_openai_client():
-    # Checklist: "Must use OpenAI Client for all LLM calls using above variables"
-    # api_key = _env_or_default("HF_TOKEN", "")
-    api_key = _env_or_default("HF_TOKEN", "")
-
-    if not _env_or_default("HF_TOKEN", ""):
-        # Fallback logic (NO API DEPENDENCY)
-
-        close_price = obs.get("close", 0)
-        sma = obs.get("sma_20", close_price)
-        rsi = obs.get("rsi", 50)
-
-        if rsi < 30 and close_price > sma:
-            return "BUY", "fallback_rsi_oversold"
-        elif rsi > 70 and close_price < sma:
-            return "SELL", "fallback_rsi_overbought"
-        else:
-            return "HOLD", "fallback_no_signal"
+    """Create OpenAI client using the hackathon-provided proxy credentials."""
+    api_key = _env_or_default("API_KEY", "")
     base_url = _env_or_default("API_BASE_URL", "https://api.openai.com/v1")
 
     return OpenAI(
         api_key=api_key if api_key else "dummy_key_if_missing",
         base_url=base_url,
-        timeout=10.0,
-        max_retries=1,
+        timeout=30.0,
+        max_retries=2,
     )
 
 MODEL_NAME = _env_or_default("MODEL_NAME", "gpt-4o-mini")
@@ -73,9 +58,6 @@ def get_llm_action(obs):
     Returns:
         tuple[str, str]: (action, fallback_reason)
     """
-
-    if not _env_or_default("HF_TOKEN", ""):
-        return "HOLD", "missing_hf_token"
 
     client = get_openai_client()
     
