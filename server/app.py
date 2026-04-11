@@ -147,7 +147,7 @@ def run_interactive_baseline(req: LLMRequest):
         return {"logs": "Mock run successful"}
 
     # Temporarily set the key for this execution using HF_TOKEN
-    os.environ["HF_TOKEN"] = req.api_key
+    os.environ["API_KEY"] = req.api_key
     if req.api_base_url and req.api_base_url.strip():
         os.environ["API_BASE_URL"] = req.api_base_url.strip()
     if req.model_name and req.model_name.strip():
