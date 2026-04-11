@@ -129,8 +129,8 @@ def run_interactive_baseline(req: LLMRequest):
         RUN_LOCK.release()
         return {"logs": "Mock run successful"}
 
-    # Temporarily set the key for this execution using HF_TOKEN
-    os.environ["HF_TOKEN"] = req.api_key
+    # Temporarily set the key for this execution
+    os.environ["API_KEY"] = req.api_key
 
     # We redirect standard output (print statements) to a string buffer to send back to the UI
     new_stdout = io.StringIO()
