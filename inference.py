@@ -20,7 +20,7 @@ np.random.seed(42)
 # OpenAI Client (ENV CONFIG)
 # ===============================
 def get_api_key():
-    return os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
+    return os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
 
 
 def get_openai_client():
