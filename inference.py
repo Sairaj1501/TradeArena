@@ -20,13 +20,17 @@ np.random.seed(42)
 # OpenAI Client (ENV CONFIG)
 # ===============================
 def get_api_key():
-    return os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
+    return os.environ["API_KEY"]
+
+
+def get_api_base_url():
+    return os.environ["API_BASE_URL"]
 
 
 def get_openai_client():
     return OpenAI(
         api_key=get_api_key(),
-        base_url=os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+        base_url=get_api_base_url(),
     )
 
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
@@ -37,9 +41,8 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 def get_llm_action(obs):
     api_key = get_api_key()
 
-    # If no API key → skip LLM completely
     if not api_key:
-        raise Exception("No API key - using fallback")
+        raise Exception("Missing API_KEY")
 
     client = get_openai_client()
     
@@ -66,37 +69,20 @@ def get_llm_action(obs):
     Respond with ONLY the action name.
     """
 
-    try:
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=10,
-            temperature=0,
-            timeout=5
-        )
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=10,
+        temperature=0,
+        timeout=5,
+    )
 
-        action = response.choices[0].message.content.strip().upper()
+    action = response.choices[0].message.content.strip().upper()
 
-        if action not in ["BUY_CALL", "BUY_PUT", "HOLD", "EXIT"]:
-            return "HOLD", f"invalid_action:{action}"
+    if action not in ["BUY_CALL", "BUY_PUT", "HOLD", "EXIT"]:
+        return "HOLD", f"invalid_action:{action}"
 
-        return action, "llm"
-
-    except Exception:
-        price = obs_dict["price"]
-        rsi = obs_dict["rsi"]
-        position = obs_dict["position"]
-
-        if rsi < 30 and position == "NONE":
-            action = "BUY_CALL"
-        elif rsi > 70 and position == "NONE":
-            action = "BUY_PUT"
-        elif position != "NONE":
-            action = "EXIT"
-        else:
-            action = "HOLD"
-
-        return action, "rule_based"
+    return action, "llm"
 
 
 # ===============================
