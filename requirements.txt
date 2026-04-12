@@ -3,6 +3,7 @@ numpy
 pydantic
 scipy
 openai
+requests
 python-dotenv
 uvicorn
 fastapi

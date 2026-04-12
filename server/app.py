@@ -2,7 +2,7 @@
 server/app.py — FastAPI server for TradeArena OpenEnv environment
 Provides: GET /, POST /reset, POST /step, GET /state, GET /health
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
 from server.models import Action, Observation, Reward
 from server.environment import TradingEnvironment
@@ -22,14 +22,20 @@ import contextlib
 app = FastAPI(title="TradeArena OpenEnv")
 RUN_LOCK = threading.Lock()
 
-# ── Initialise environment (globally shared for HTTP endpoints) ───────────────
+# ── Initialise environments for all 3 tasks ───────────────────────────────────
+_data = None
+_envs: dict = {}         # task_name -> TradingEnvironment
+_active_task = "easy"   # tracks the currently active task for /step and /state
+_env_lock = threading.Lock()
+
 try:
     _data = load_data("data/NIFTY 50_minute.csv")
-    _task_config = get_task_config("easy")
-    env = TradingEnvironment(_data, _task_config)
-    print("[INFO] Environment initialised successfully.", flush=True)
+    for _t in ["easy", "medium", "hard"]:
+        _envs[_t] = TradingEnvironment(_data, get_task_config(_t))
+    env = _envs["easy"]  # legacy alias used by web-UI runner
+    print("[INFO] All task environments initialised successfully.", flush=True)
 except Exception as _e:
-    print(f"[ERROR] Failed to initialise environment: {_e}", flush=True)
+    print(f"[ERROR] Failed to initialise environments: {_e}", flush=True)
     env = None
     _data = None
 
@@ -225,15 +231,20 @@ def health():
 
 # ── Reset ─────────────────────────────────────────────────────────────────────
 @app.post("/reset", response_model=Observation)
-def reset():
-    if not env:
-        return Observation(
-            price=0.0, rsi=50.0, trend="neutral",
-            time_to_expiry=0, position="none",
-            entry_price=None, balance=0.0, equity=0.0
-        )
-    obs = env.reset()
-    # env.reset() returns a raw dict — convert to Observation model
+def reset(task: str = Query(default="easy", description="Task name: easy | medium | hard")):
+    """Reset the environment for the given task. Defaults to 'easy'."""
+    global _active_task
+    task = task.lower()
+    with _env_lock:
+        _active_task = task
+        target_env = _envs.get(task) if _envs else env
+        if target_env is None:
+            return Observation(
+                price=0.0, rsi=50.0, trend="neutral",
+                time_to_expiry=0, position="none",
+                entry_price=None, balance=0.0, equity=0.0
+            )
+        obs = target_env.reset()
     if isinstance(obs, dict):
         return Observation(**obs)
     return obs
@@ -242,10 +253,12 @@ def reset():
 # ── Step ──────────────────────────────────────────────────────────────────────
 @app.post("/step")
 def step(action: Action):
-    if not env:
+    with _env_lock:
+        target_env = _envs.get(_active_task) if _envs else env
+    if target_env is None:
         return {"error": "Environment not initialized"}
 
-    result_obs, reward_obj = env.step(action)
+    result_obs, reward_obj = target_env.step(action)
 
     return {
         "observation": result_obs.model_dump() if result_obs and hasattr(result_obs, "model_dump") else None,
@@ -258,9 +271,11 @@ def step(action: Action):
 # ── State ─────────────────────────────────────────────────────────────────────
 @app.get("/state")
 def state():
-    if not env:
+    with _env_lock:
+        target_env = _envs.get(_active_task) if _envs else env
+    if target_env is None:
         return {"error": "Environment not initialized"}
-    return env.state()
+    return target_env.state()
 
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
