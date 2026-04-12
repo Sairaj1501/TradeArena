@@ -19,9 +19,13 @@ np.random.seed(42)
 # ===============================
 # OpenAI Client (ENV CONFIG)
 # ===============================
+def get_api_key():
+    return os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
+
+
 def get_openai_client():
     return OpenAI(
-        api_key=os.getenv("OPENAI_API_KEY"),
+        api_key=get_api_key(),
         base_url=os.getenv("API_BASE_URL", "https://api.openai.com/v1")
     )
 
@@ -31,7 +35,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 # LLM Action Generator
 # ===============================
 def get_llm_action(obs):
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = get_api_key()
 
     # If no API key → skip LLM completely
     if not api_key:
